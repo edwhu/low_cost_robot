@@ -14,6 +14,7 @@ class MotorControlType(Enum):
 
 
 class Robot:
+    name = 'robot'
     # def __init__(self, device_name: str, baudrate=1_000_000, servo_ids=[1, 2, 3, 4, 5]):
     def __init__(self, dynamixel, baudrate=1_000_000, servo_ids=[1, 2, 3, 4, 5]):
         self.servo_ids = servo_ids
@@ -64,7 +65,7 @@ class Robot:
             if tries > 0:
                 return self.read_position(tries=tries - 1)
             else:
-                print(f'failed to read position!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+                print(f'{self.name} failed to read position!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         positions = []
         for id in self.servo_ids:
             position = self.position_reader.getData(id, ReadAttribute.POSITION.value, 4)
