@@ -1,3 +1,7 @@
+# Edward's modifications
+* turned into a local pip package to be easily importable. so you need to do `pip install -e .` once to add it to your environment.
+
+
 # Low-Cost Robot Arm
 Join the waitlist here to get all the parts in one package: https://tau-robotics.com/robots
 

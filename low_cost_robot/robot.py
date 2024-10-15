@@ -1,5 +1,5 @@
 import numpy as np
-from dynamixel import Dynamixel, OperatingMode, ReadAttribute
+from low_cost_robot.dynamixel import Dynamixel, OperatingMode, ReadAttribute
 import time
 from dynamixel_sdk import GroupSyncRead, GroupSyncWrite, DXL_LOBYTE, DXL_HIBYTE, DXL_LOWORD, DXL_HIWORD
 from enum import Enum, auto

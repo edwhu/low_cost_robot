@@ -1,9 +1,9 @@
 # A gymnasium environment for the Koch robot.
 import cv2
 import gymnasium
-from cameras.opencv import OpenCVCamera, OpenCVCameraConfig
-from robot import Robot
-from dynamixel import Dynamixel
+from low_cost_robot.cameras.opencv import OpenCVCamera, OpenCVCameraConfig
+from low_cost_robot.robot import Robot
+from low_cost_robot.dynamixel import Dynamixel
 import numpy as np
 from collections import defaultdict, deque
 import sys
@@ -11,7 +11,7 @@ from tqdm import tqdm, trange
 import time
 import os
 
-from success_detection import BlockColor, CamLocation, color_threshold
+from low_cost_robot.success_detection import BlockColor, CamLocation, color_threshold
 
 class KochRobotEnv(gymnasium.Env):
     min_joint_pos = 0

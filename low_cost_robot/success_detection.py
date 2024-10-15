@@ -2,7 +2,7 @@ from enum import Enum
 import numpy as np
 import cv2
 
-from cameras.opencv import OpenCVCamera, OpenCVCameraConfig
+from low_cost_robot.cameras.opencv import OpenCVCamera, OpenCVCameraConfig
 
 class BlockColor(Enum):
     RED = 'red'
