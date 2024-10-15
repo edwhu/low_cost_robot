@@ -51,6 +51,7 @@ class Robot:
             2)
         for id in self.servo_ids:
             self.pwm_writer.addParam(id, [2048])
+        self.torque_disabled = None
         self._disable_torque()
         self.motor_control_state = MotorControlType.DISABLED
 
@@ -142,14 +143,21 @@ class Robot:
         self._enable_torque()
 
     def _disable_torque(self):
-        print(f'disabling torque for servos {self.servo_ids}')
+        print(f'{self.name} disabling torque for servos {self.servo_ids}')
+        if self.torque_disabled is True:
+            print('torque already disabled, skipping.')
+            return
         for motor_id in self.servo_ids:
             self.dynamixel._disable_torque(motor_id)
+        self.torque_disabled = True
 
     def _enable_torque(self):
-        print(f'enabling torque for servos {self.servo_ids}')
+        print(f'{self.name} enabling torque for servos {self.servo_ids}')
+        if self.torque_disabled is False:
+            return
         for motor_id in self.servo_ids:
             self.dynamixel._enable_torque(motor_id)
+        self.torque_disabled = False
 
     def _set_pwm_control(self):
         self._disable_torque()
