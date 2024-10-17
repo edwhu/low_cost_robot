@@ -5,6 +5,50 @@ import cv2
 import einops
 import numpy as np
 
+from datetime import datetime, timezone
+
+import platform
+import time
+
+
+def busy_wait(seconds):
+    if platform.system() == "Darwin":
+        # On Mac, `time.sleep` is not accurate and we need to use this while loop trick,
+        # but it consumes CPU cycles.
+        # TODO(rcadene): find an alternative: from python 11, time.sleep is precise
+        end_time = time.perf_counter() + seconds
+        while time.perf_counter() < end_time:
+            pass
+    else:
+        # On Linux time.sleep is accurate
+        if seconds > 0:
+            time.sleep(seconds)
+
+
+class RobotDeviceNotConnectedError(Exception):
+    """Exception raised when the robot device is not connected."""
+
+    def __init__(
+        self, message="This robot device is not connected. Try calling `robot_device.connect()` first."
+    ):
+        self.message = message
+        super().__init__(self.message)
+
+
+class RobotDeviceAlreadyConnectedError(Exception):
+    """Exception raised when the robot device is already connected."""
+
+    def __init__(
+        self,
+        message="This robot device is already connected. Try not calling `robot_device.connect()` twice.",
+    ):
+        self.message = message
+        super().__init__(self.message)
+
+def capture_timestamp_utc():
+    return datetime.now(timezone.utc)
+
+
 
 def write_shape_on_image_inplace(image):
     height, width = image.shape[:2]
@@ -53,6 +97,6 @@ def convert_torch_image_to_cv2(tensor, rgb_to_bgr=True):
 # Defines a camera type
 class Camera(Protocol):
     def connect(self): ...
-    def read(self, temporary_color: str | None = None) -> np.ndarray: ...
+    def read(self, temporary_color: str= None) -> np.ndarray: ...
     def async_read(self) -> np.ndarray: ...
     def disconnect(self): ...

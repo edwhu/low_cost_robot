@@ -18,12 +18,7 @@ import numpy as np
 import pyrealsense2 as rs
 from PIL import Image
 
-from lerobot.common.robot_devices.utils import (
-    RobotDeviceAlreadyConnectedError,
-    RobotDeviceNotConnectedError,
-)
-from lerobot.common.utils.utils import capture_timestamp_utc
-from lerobot.scripts.control_robot import busy_wait
+from low_cost_robot.cameras.utils import RobotDeviceAlreadyConnectedError, RobotDeviceNotConnectedError, busy_wait, capture_timestamp_utc
 
 SERIAL_NUMBER_INDEX = 1
 

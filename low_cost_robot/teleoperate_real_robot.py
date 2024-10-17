@@ -1,9 +1,9 @@
 from robot import Robot
 from dynamixel import Dynamixel
 
-leader_dynamixel = Dynamixel.Config(baudrate=2_000_000, device_name='/dev/tty.usbmodem58760428591').instantiate()
+leader_dynamixel = Dynamixel.Config(baudrate=1_000_000, device_name='/dev/ttyACM1').instantiate()
 # print('leader')
-follower_dynamixel = Dynamixel.Config(baudrate=2_000_000, device_name='/dev/tty.usbmodem58760435361').instantiate()
+follower_dynamixel = Dynamixel.Config(baudrate=1_000_000, device_name='/dev/ttyACM0').instantiate()
 # print('follower')
 follower = Robot(follower_dynamixel, servo_ids=[1, 2, 3, 4, 5, 6])
 follower.name = 'follower'

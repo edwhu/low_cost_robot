@@ -2,6 +2,7 @@
 import cv2
 import gymnasium
 from low_cost_robot.cameras.opencv import OpenCVCamera, OpenCVCameraConfig
+
 from low_cost_robot.robot import Robot
 from low_cost_robot.dynamixel import Dynamixel
 import numpy as np
@@ -53,7 +54,7 @@ class KochRobotEnv(gymnasium.Env):
         # reward will be combination of object detected and if the block is in the target circle. 
         gripper_stuck = obs['gripper_stuck'][0]
         side_img = self.cameras['side_cam'].async_read()
-        crop_image = side_img[320:, 120:320]
+        crop_image = side_img[240:, 100:300]
         # convert rgb to bgr
         crop_image = cv2.cvtColor(crop_image, cv2.COLOR_RGB2BGR)
         mask, _ = color_threshold(crop_image, CamLocation.HAND, BlockColor.LIGHT_BLUE)
@@ -79,7 +80,7 @@ class KochRobotEnv(gymnasium.Env):
             # pass
             img = self.cameras["wrist_cam"].async_read()
             # crop out the top half of the image
-            img = img[240:, :]
+            img = img[120:, :]
             resized_img = img
             obs_dict[f'wrist_cam'] = resized_img
         
@@ -128,7 +129,7 @@ def collect_demos(demo_folder):
     wrist_camera.connect()
 
     side_camera_config = OpenCVCameraConfig(fps=30, width=640, height=480, color_mode='rgb')
-    side_camera = OpenCVCamera(camera_index=1, config=side_camera_config)
+    side_camera = OpenCVCamera(camera_index=6, config=side_camera_config)
     side_camera.connect()
 
     # print("sleeping for 2 seconds to let the cameras connect.")
@@ -136,8 +137,8 @@ def collect_demos(demo_folder):
 
     cameras = {'side_cam': side_camera, 'wrist_cam': wrist_camera}
 
-    follower_device_name = '/dev/tty.usbmodem58760435361'
-    leader_dynamixel = Dynamixel.Config(baudrate=1_000_000, device_name='/dev/tty.usbmodem58760428591').instantiate()
+    follower_device_name = '/dev/ttyACM0'
+    leader_dynamixel = Dynamixel.Config(baudrate=1_000_000, device_name='/dev/ttyACM1').instantiate()
     leader = Robot(leader_dynamixel, servo_ids=[1, 2, 3, 4, 5, 6])
     leader.name = 'leader'
     leader.set_trigger_torque()
@@ -198,9 +199,9 @@ def collect_demos(demo_folder):
     env.close()
         
 if __name__ == '__main__':
-    os.makedirs('demos', exist_ok=True)
-    collect_demos('demos')
-    sys.exit(0)
+    # os.makedirs('demos', exist_ok=True)
+    # collect_demos('demos')
+    # sys.exit(0)
 
 
     """=======Code for testing out the robot========="""
@@ -210,7 +211,7 @@ if __name__ == '__main__':
     wrist_camera.connect()
 
     side_camera_config = OpenCVCameraConfig(fps=30, width=640, height=480, color_mode='rgb')
-    side_camera = OpenCVCamera(camera_index=1, config=side_camera_config)
+    side_camera = OpenCVCamera(camera_index=6, config=side_camera_config)
     side_camera.connect()
 
     cameras = {
@@ -218,8 +219,8 @@ if __name__ == '__main__':
         'side_cam': side_camera}
     # cameras = None
 
-    follower_device_name = '/dev/tty.usbmodem58760435361'
-    leader_dynamixel = Dynamixel.Config(baudrate=1_000_000, device_name='/dev/tty.usbmodem58760428591').instantiate()
+    follower_device_name = '/dev/ttyACM0'
+    leader_dynamixel = Dynamixel.Config(baudrate=1_000_000, device_name='/dev/ttyACM1').instantiate()
     leader = Robot(leader_dynamixel, servo_ids=[1, 2, 3, 4, 5, 6])
     leader.name = 'leader'
     leader.set_trigger_torque()
