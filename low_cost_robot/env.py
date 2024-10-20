@@ -23,22 +23,18 @@ class KochRobotEnv(gymnasium.Env):
         self.robot = Robot(follower_dynamixel, servo_ids=[1, 2, 3, 4, 5, 6])
         self.robot.name = 'follower'
         self.disable_torque_on_close = disable_torque_on_close
-        self.reset_joint_positions = [2000, 1548, 1095, 2111, 2056, 2690]
+        self.reset_joint_positions = [2052, 1557, 1107, 1803 ,2059, 2691]
         self.action_space = gymnasium.spaces.Box(low=0, high=4095, shape=(6,), dtype=np.int32) 
         _observation_space = {
             'joints': gymnasium.spaces.Box(low=0, high=4096, shape=(6,), dtype=np.int32),
             'gripper_stuck': gymnasium.spaces.Box(low=0, high=1, shape=(1,), dtype=np.int32),
         }
-        self.achieved_gripper_pos_deque = deque(maxlen=10)
-        self.commanded_gripper_pos_deque = deque(maxlen=10)
+        self.achieved_gripper_pos_deque = deque(maxlen=2)
+        self.commanded_gripper_pos_deque = deque(maxlen=2)
         self.cameras = cameras
         if self.cameras is not None:
-            # pass
-            # assert len(cameras) == 2, "Assume we have wrist and side camera"
-            # just give the wrist camera to the policy.
             _observation_space["wrist_cam"] = gymnasium.spaces.Box(low=0, high=255, shape=(640, 480, 3), dtype=np.uint8)
-            # for camera in self.cameras.values():
-            #     camera.connect()
+            _observation_space["side_cam"] = gymnasium.spaces.Box(low=0, high=255, shape=(240, 200, 3), dtype=np.uint8)
 
         self.observation_space = gymnasium.spaces.Dict(_observation_space)
 
@@ -53,23 +49,28 @@ class KochRobotEnv(gymnasium.Env):
         # =======Reward=========
         # reward will be combination of object detected and if the block is in the target circle. 
         gripper_stuck = obs['gripper_stuck'][0]
-        side_img = self.cameras['side_cam'].async_read()
-        crop_image = side_img[240:, 100:300]
-        # convert rgb to bgr
-        crop_image = cv2.cvtColor(crop_image, cv2.COLOR_RGB2BGR)
-        mask, _ = color_threshold(crop_image, CamLocation.HAND, BlockColor.LIGHT_BLUE)
-        mask_pixels = mask.sum()
-        block_detected = mask_pixels > 30000
+        # crop_image = obs['side_cam']
+        # crop_image = cv2.cvtColor(crop_image, cv2.COLOR_RGB2BGR)
+        # mask, _ = color_threshold(crop_image, CamLocation.HAND, BlockColor.LIGHT_BLUE)
+        # mask_pixels = mask.sum()
+        # block_detected = mask_pixels > 30000
 
-        info['mask_pixels'] = mask_pixels
-        info['block_detected'] = block_detected
-        info['mask'] = mask
-        info['rew_img'] = crop_image
+        # info['mask_pixels'] = mask_pixels
+        # info['block_detected'] = block_detected
+        # info['mask'] = mask
+        # info['rew_img'] = crop_image
 
-        reward = 0.5 * gripper_stuck +  (gripper_stuck) * (1.0 * block_detected)
+        # reward = 0.5 * gripper_stuck +  (gripper_stuck) * ((not block_detected) * 1.0)
+        reward = 0.5 * gripper_stuck
         terminated = False 
         truncated = False
         return obs, reward, terminated, truncated, info
+    
+    def _get_side_cam_image(self):
+        side_img = self.cameras['side_cam'].async_read()
+        crop_image = side_img[240:, 100:300]
+        # convert rgb to bgr
+        return crop_image
 
     def _get_obs_dict(self, action=None):
         joint_pos = np.asarray(self.robot.read_position())
@@ -83,6 +84,7 @@ class KochRobotEnv(gymnasium.Env):
             img = img[120:, :]
             resized_img = img
             obs_dict[f'wrist_cam'] = resized_img
+            obs_dict['side_cam'] = self._get_side_cam_image()
         
         if action is None:
             obs_dict['gripper_stuck'] = np.array([0], dtype=np.int32)
@@ -103,8 +105,9 @@ class KochRobotEnv(gymnasium.Env):
             obs_dict['gripper_stuck'] = np.array([gripper_stuck], dtype=np.int32)
         return obs_dict
     
-    def reset(self):
+    def reset(self, **kwargs):
         self.robot.set_goal_pos(self.reset_joint_positions)
+        time.sleep(1)
         obs = self._get_obs_dict()
         info = {}
         return obs, info
@@ -145,31 +148,32 @@ def collect_demos(demo_folder):
 
     env = KochRobotEnv(device_name=follower_device_name, cameras=cameras,disable_torque_on_close=True)
 
-    demo_length = 350 # in steps
+    demo_length = 500 # in steps
     reset_seconds = 5 # in seconds
-    num_demos = 10
+    num_demos = 2
     demos_collected = 0
 
     while demos_collected < num_demos:
+        # Tell the user that the robot is ready for teleop, and wait for their input.
+        input(f"Demo {demos_collected + 1}/{num_demos}, Press Enter to start the collection.")
         ep_dict = defaultdict(list)
         obs, info = env.reset()
         for k, v in obs.items():
             ep_dict['obs/' + k].append(v)
-        # Tell the user that the robot is ready for teleop, and wait for their input.
-        input(f"Demo {demos_collected + 1}/10, Press Enter to start the collection.")
+        # operate at around 1 hz.
         for timestep in trange(demo_length, desc="Collecting demo"):
+            start_time = time.time()
             leader_pos = np.asarray(leader.read_position(), dtype=np.int32)
             action = leader_pos
             ep_dict['action'].append(action)
             obs, rew, terminated, truncated, info = env.step(action)
-            img = info['rew_img']
-            # cv2.imshow('mask', info['mask'])
+            img = obs['side_cam']
             cv2.imshow('side', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
             img = obs['wrist_cam']
             cv2.imshow('wrist', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
             cv2.waitKey(1)
             if timestep % 10 == 0:
-                print('L:', leader_pos, 'F:', obs['joints'], 'rew:', rew, 'mask_pixels:', info['mask_pixels'])
+                print('L:', leader_pos, 'F:', obs['joints'], 'rew:', rew)
             timestep += 1
             for k, v in obs.items():
                 ep_dict['obs/' + k].append(v)
@@ -182,7 +186,7 @@ def collect_demos(demo_folder):
         save_demo = input("Save the demo? enter y/n")
         if save_demo.lower() == 'y':
             demos_collected += 1
-            demo_path = os.path.join(demo_folder, f'demo_{demos_collected}.npy')
+            demo_path = os.path.join(demo_folder, f'demo_{demos_collected}.npz')
             np.savez_compressed(demo_path, **ep_dict)
         else:
             print("Demo not saved.")
@@ -199,9 +203,9 @@ def collect_demos(demo_folder):
     env.close()
         
 if __name__ == '__main__':
-    # os.makedirs('demos', exist_ok=True)
-    # collect_demos('demos')
-    # sys.exit(0)
+    os.makedirs('demos', exist_ok=True)
+    collect_demos('demos')
+    sys.exit(0)
 
 
     """=======Code for testing out the robot========="""
@@ -232,14 +236,14 @@ if __name__ == '__main__':
         leader_pos = np.asarray(leader.read_position(), dtype=np.int32)
         action = leader_pos
         obs, rew, terminated, truncated, info = env.step(action)
-        img = info['rew_img']
-        cv2.imshow('mask', info['mask'])
+        img = obs['side_cam']
+        # cv2.imshow('mask', info['mask'])
         cv2.imshow('side', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
         img = obs['wrist_cam']
         cv2.imshow('wrist', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
         cv2.waitKey(1)
         if counter % 1 == 0:
-            print('L:', leader_pos, 'F:', obs['joints'], 'rew:', rew, 'mask_pixels:', info['mask_pixels'], end='\r')
+            print('L:', leader_pos, 'F:', obs['joints'], 'rew:', rew,  end='\r')
         counter += 1
     env.close()
