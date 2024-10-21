@@ -149,18 +149,17 @@ def collect_demos(demo_folder):
     env = KochRobotEnv(device_name=follower_device_name, cameras=cameras,disable_torque_on_close=True)
 
     demo_length = 500 # in steps
-    reset_seconds = 5 # in seconds
-    num_demos = 2
+    reset_seconds = 7 # in seconds
+    num_demos = 10
     demos_collected = 0
 
     while demos_collected < num_demos:
         # Tell the user that the robot is ready for teleop, and wait for their input.
-        input(f"Demo {demos_collected + 1}/{num_demos}, Press Enter to start the collection.")
         ep_dict = defaultdict(list)
         obs, info = env.reset()
+        input(f"Demo {demos_collected + 1}/{num_demos}, Press Enter to start the collection.")
         for k, v in obs.items():
             ep_dict['obs/' + k].append(v)
-        # operate at around 1 hz.
         for timestep in trange(demo_length, desc="Collecting demo"):
             start_time = time.time()
             leader_pos = np.asarray(leader.read_position(), dtype=np.int32)
@@ -203,47 +202,49 @@ def collect_demos(demo_folder):
     env.close()
         
 if __name__ == '__main__':
-    os.makedirs('demos', exist_ok=True)
-    collect_demos('demos')
-    sys.exit(0)
+    assert len(sys.argv) > 1, "Please provide an argument to run the script."
+    if sys.argv[1] == 'teleop':
+        os.makedirs('demos', exist_ok=True)
+        collect_demos('demos')
+        sys.exit(0)
 
+    elif sys.argv[1] == 'play':
+        """=======Code for testing out the robot========="""
+        # wrist camera
+        wrist_camera_config = OpenCVCameraConfig(fps=30, width=640, height=480, color_mode='rgb')
+        wrist_camera = OpenCVCamera(camera_index=0, config=wrist_camera_config)
+        wrist_camera.connect()
 
-    """=======Code for testing out the robot========="""
-    # wrist camera
-    wrist_camera_config = OpenCVCameraConfig(fps=30, width=640, height=480, color_mode='rgb')
-    wrist_camera = OpenCVCamera(camera_index=0, config=wrist_camera_config)
-    wrist_camera.connect()
+        side_camera_config = OpenCVCameraConfig(fps=30, width=640, height=480, color_mode='rgb')
+        side_camera = OpenCVCamera(camera_index=6, config=side_camera_config)
+        side_camera.connect()
 
-    side_camera_config = OpenCVCameraConfig(fps=30, width=640, height=480, color_mode='rgb')
-    side_camera = OpenCVCamera(camera_index=6, config=side_camera_config)
-    side_camera.connect()
+        cameras = {
+            'wrist_cam': wrist_camera, 
+            'side_cam': side_camera}
+        # cameras = None
 
-    cameras = {
-        'wrist_cam': wrist_camera, 
-        'side_cam': side_camera}
-    # cameras = None
+        follower_device_name = '/dev/ttyACM0'
+        leader_dynamixel = Dynamixel.Config(baudrate=1_000_000, device_name='/dev/ttyACM1').instantiate()
+        leader = Robot(leader_dynamixel, servo_ids=[1, 2, 3, 4, 5, 6])
+        leader.name = 'leader'
+        leader.set_trigger_torque()
 
-    follower_device_name = '/dev/ttyACM0'
-    leader_dynamixel = Dynamixel.Config(baudrate=1_000_000, device_name='/dev/ttyACM1').instantiate()
-    leader = Robot(leader_dynamixel, servo_ids=[1, 2, 3, 4, 5, 6])
-    leader.name = 'leader'
-    leader.set_trigger_torque()
+        env = KochRobotEnv(device_name=follower_device_name, cameras=cameras,disable_torque_on_close=True)
+        env.reset()
+        counter = 0
+        for i in range(10000):
+            leader_pos = np.asarray(leader.read_position(), dtype=np.int32)
+            action = leader_pos
+            obs, rew, terminated, truncated, info = env.step(action)
+            img = obs['side_cam']
+            # cv2.imshow('mask', info['mask'])
+            cv2.imshow('side', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
 
-    env = KochRobotEnv(device_name=follower_device_name, cameras=cameras,disable_torque_on_close=True)
-    env.reset()
-    counter = 0
-    for i in range(10000):
-        leader_pos = np.asarray(leader.read_position(), dtype=np.int32)
-        action = leader_pos
-        obs, rew, terminated, truncated, info = env.step(action)
-        img = obs['side_cam']
-        # cv2.imshow('mask', info['mask'])
-        cv2.imshow('side', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-
-        img = obs['wrist_cam']
-        cv2.imshow('wrist', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
-        cv2.waitKey(1)
-        if counter % 1 == 0:
-            print('L:', leader_pos, 'F:', obs['joints'], 'rew:', rew,  end='\r')
-        counter += 1
-    env.close()
+            img = obs['wrist_cam']
+            cv2.imshow('wrist', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            cv2.waitKey(1)
+            if counter % 1 == 0:
+                print('L:', leader_pos, 'F:', obs['joints'], 'rew:', rew,  end='\r')
+            counter += 1
+        env.close()
